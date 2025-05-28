@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Flappy Captain Daddy</title>
-    <!-- Firebase App (the core Firebase SDK) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <!-- Firestore -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         * {
@@ -708,11 +706,10 @@
             var pipeCreateInterval;
             var showHitbox = false; // Set to true for debugging collision
             var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            var leaderboard = [];
             
-            // Load player data and leaderboard
+            // Load player data and initial top player
             loadPlayerData();
-            loadLeaderboard();
+            loadTopPlayer();
             
             // Load player data from localStorage
             function loadPlayerData() {
@@ -732,151 +729,132 @@
             function savePlayerData() {
                 localStorage.setItem("flappyCaptainDaddyPlayerName", playerName);
                 localStorage.setItem("flappyCaptainDaddyHighScore", highScore);
-                
-                // Update leaderboard with current player's high score
-                updateLeaderboard(playerName, highScore);
             }
             
-            // Load leaderboard data from Firebase
-            function loadLeaderboard() {
-                // Show loading indicator in the leaderboard display
-                topPlayerDisplay.textContent = "Loading champions...";
-                
-                // Get the top 20 scores from Firestore
+            // Load just the top player for the main screen display
+            function loadTopPlayer() {
+                topPlayerDisplay.textContent = "Loading champion...";
+                db.collection("leaderboard")
+                    .orderBy("score", "desc")
+                    .limit(1)
+                    .get()
+                    .then((querySnapshot) => {
+                        if (querySnapshot.empty) {
+                            topPlayerDisplay.textContent = "No champion yet!";
+                        } else {
+                            const topScorer = querySnapshot.docs[0].data();
+                            topPlayerDisplay.textContent = "Champion: " + topScorer.name + " (" + topScorer.score + ")";
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error getting top player: ", error);
+                        topPlayerDisplay.textContent = "Couldn't load champion";
+                    });
+            }
+            
+            // Update player score in leaderboard
+            function updateLeaderboard(name, scoreToUpdate) {
+                if (!name || name.trim() === "") {
+                    console.log("Player name is empty, not updating leaderboard.");
+                    return;
+                }
+                 // First, get the player's current entry if it exists
+                db.collection("leaderboard")
+                    .where("name", "==", name)
+                    .limit(1)
+                    .get()
+                    .then((querySnapshot) => {
+                        if (querySnapshot.empty) {
+                            // Player doesn't exist, add new entry
+                            db.collection("leaderboard").add({
+                                name: name,
+                                score: scoreToUpdate,
+                                lastPlayed: new Date().toISOString()
+                            })
+                            .then(() => {
+                                console.log("New player added to leaderboard.");
+                                loadTopPlayer(); // Refresh the top player display
+                            })
+                            .catch((error) => console.error("Error adding player: ", error));
+                        } else {
+                            // Player exists, check if new score is higher
+                            const playerDoc = querySnapshot.docs[0];
+                            if (scoreToUpdate > playerDoc.data().score) {
+                                db.collection("leaderboard").doc(playerDoc.id).update({
+                                    score: scoreToUpdate,
+                                    lastPlayed: new Date().toISOString()
+                                })
+                                .then(() => {
+                                    console.log("Player score updated.");
+                                    loadTopPlayer(); // Refresh the top player display
+                                })
+                                .catch((error) => console.error("Error updating player: ", error));
+                            } else {
+                                console.log("Current score is not higher than the existing high score.");
+                            }
+                        }
+                    })
+                    .catch((error) => console.error("Error checking player: ", error));
+            }
+            
+            // [FIXED] Display the full leaderboard in a modal by fetching live data
+            function showLeaderboardModal() {
+                // Show the modal immediately and display a loading message
+                leaderboardModal.style.display = 'block';
+                leaderboardList.innerHTML = '<div class="leaderboard-row" style="justify-content: center;">Loading...</div>';
+
+                // Fetch the top 20 scores from Firestore
                 db.collection("leaderboard")
                     .orderBy("score", "desc")
                     .limit(20)
                     .get()
                     .then((querySnapshot) => {
-                        // Clear the current leaderboard
-                        leaderboard = [];
-                        
-                        // Add each document to our leaderboard array
-                        querySnapshot.forEach((doc) => {
-                            leaderboard.push(doc.data());
-                        });
-                        
-                        // Update the display
-                        updateTopPlayerDisplay();
+                        // Clear the loading message
+                        leaderboardList.innerHTML = "";
+
+                        // Create header row
+                        var headerRow = document.createElement('div');
+                        headerRow.className = 'leaderboard-row header';
+                        headerRow.innerHTML = '<div class="rank">Rank</div><div class="name">Player</div><div class="score">Score</div>';
+                        leaderboardList.appendChild(headerRow);
+
+                        if (querySnapshot.empty) {
+                            var emptyRow = document.createElement('div');
+                            emptyRow.className = 'leaderboard-row';
+                            emptyRow.innerHTML = '<div class="rank">-</div><div class="name" style="text-align: center;">No scores yet!</div><div class="score">-</div>';
+                            leaderboardList.appendChild(emptyRow);
+                        } else {
+                            let rank = 1;
+                            querySnapshot.forEach((doc) => {
+                                const playerData = doc.data();
+                                var row = document.createElement('div');
+                                row.className = 'leaderboard-row' + (rank <= 3 ? ' top-three' : '');
+                                
+                                var rankDiv = document.createElement('div');
+                                rankDiv.className = 'rank';
+                                rankDiv.textContent = rank;
+                                
+                                var nameDiv = document.createElement('div');
+                                nameDiv.className = 'name';
+                                nameDiv.textContent = playerData.name;
+                                
+                                var scoreDiv = document.createElement('div');
+                                scoreDiv.className = 'score';
+                                scoreDiv.textContent = playerData.score;
+                                
+                                row.appendChild(rankDiv);
+                                row.appendChild(nameDiv);
+                                row.appendChild(scoreDiv);
+                                
+                                leaderboardList.appendChild(row);
+                                rank++;
+                            });
+                        }
                     })
                     .catch((error) => {
                         console.error("Error getting leaderboard: ", error);
-                        topPlayerDisplay.textContent = "Couldn't load champions";
+                        leaderboardList.innerHTML = '<div class="leaderboard-row" style="justify-content: center;">Error loading scores.</div>';
                     });
-            }
-            
-            // Update player score in leaderboard
-            function updateLeaderboard(name, score) {
-                // First, check if this score is worth updating
-                // Get the player's current entry if it exists
-                db.collection("leaderboard")
-                    .where("name", "==", name)
-                    .get()
-                    .then((querySnapshot) => {
-                        let playerExists = false;
-                        let playerDocId = null;
-                        let shouldUpdate = false;
-                        
-                        querySnapshot.forEach((doc) => {
-                            playerExists = true;
-                            playerDocId = doc.id;
-                            
-                            // Only update if new score is higher
-                            if (score > doc.data().score) {
-                                shouldUpdate = true;
-                            }
-                        });
-                        
-                        if (playerExists && shouldUpdate) {
-                            // Update existing player with higher score
-                            db.collection("leaderboard").doc(playerDocId).update({
-                                score: score,
-                                lastPlayed: new Date().toISOString()
-                            })
-                            .then(() => {
-                                console.log("Player score updated");
-                                loadLeaderboard(); // Refresh the leaderboard
-                            })
-                            .catch((error) => {
-                                console.error("Error updating player: ", error);
-                            });
-                        } 
-                        else if (!playerExists) {
-                            // Add new player
-                            db.collection("leaderboard").add({
-                                name: name,
-                                score: score,
-                                lastPlayed: new Date().toISOString()
-                            })
-                            .then(() => {
-                                console.log("New player added to leaderboard");
-                                loadLeaderboard(); // Refresh the leaderboard
-                            })
-                            .catch((error) => {
-                                console.error("Error adding player: ", error);
-                            });
-                        }
-                        // If player exists but score is not higher, do nothing
-                    })
-                    .catch((error) => {
-                        console.error("Error checking player: ", error);
-                    });
-            }
-            
-            // Update the top player display
-            function updateTopPlayerDisplay() {
-                if (leaderboard.length > 0) {
-                    topPlayerDisplay.textContent = "Champion: " + leaderboard[0].name + " (" + leaderboard[0].score + ")";
-                } else {
-                    topPlayerDisplay.textContent = "No champion yet!";
-                }
-            }
-            
-            // Display the full leaderboard in a modal
-            function showLeaderboardModal() {
-                // Clear previous list
-                leaderboardList.innerHTML = "";
-                
-                // Create header row
-                var headerRow = document.createElement('div');
-                headerRow.className = 'leaderboard-row header';
-                headerRow.innerHTML = '<div class="rank">Rank</div><div class="name">Player</div><div class="score">Score</div>';
-                leaderboardList.appendChild(headerRow);
-                
-                // Check if leaderboard is empty
-                if (leaderboard.length === 0) {
-                    var emptyRow = document.createElement('div');
-                    emptyRow.className = 'leaderboard-row';
-                    emptyRow.innerHTML = '<div class="rank">-</div><div class="name">No scores yet!</div><div class="score">-</div>';
-                    leaderboardList.appendChild(emptyRow);
-                } else {
-                    // Add player rows
-                    for (var i = 0; i < leaderboard.length; i++) {
-                        var row = document.createElement('div');
-                        row.className = 'leaderboard-row' + (i < 3 ? ' top-three' : '');
-                        
-                        var rank = document.createElement('div');
-                        rank.className = 'rank';
-                        rank.textContent = (i + 1);
-                        
-                        var name = document.createElement('div');
-                        name.className = 'name';
-                        name.textContent = leaderboard[i].name;
-                        
-                        var score = document.createElement('div');
-                        score.className = 'score';
-                        score.textContent = leaderboard[i].score;
-                        
-                        row.appendChild(rank);
-                        row.appendChild(name);
-                        row.appendChild(score);
-                        
-                        leaderboardList.appendChild(row);
-                    }
-                }
-                
-                // Show the modal
-                leaderboardModal.style.display = 'block';
             }
             
             // Close the leaderboard modal
@@ -893,19 +871,10 @@
                 player.style.transform = "rotate(0deg)";
                 scoreDisplay.textContent = "0";
                 
-                // Clear pipes
                 clearPipes();
                 
-                // Clear intervals
-                if (gameLoopInterval) {
-                    clearInterval(gameLoopInterval);
-                    gameLoopInterval = null;
-                }
-                
-                if (pipeCreateInterval) {
-                    clearInterval(pipeCreateInterval);
-                    pipeCreateInterval = null;
-                }
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                if (pipeCreateInterval) clearInterval(pipeCreateInterval);
                 
                 gameRunning = false;
                 gameOver = false;
@@ -928,20 +897,15 @@
             
             // Prepare game (set player name and hide start message)
             function prepareGame() {
-                // Get and set player name
                 var name = playerNameInput.value.trim();
                 if (name !== "") {
                     playerName = name;
-                    savePlayerData();
+                    // Save player name to local storage, but high score is saved on game over
+                    localStorage.setItem("flappyCaptainDaddyPlayerName", playerName);
                 }
                 
                 playerNameDisplay.textContent = playerName;
-                playerResultName.textContent = playerName + " failed Captain Daddy!";
-                
-                // Hide start message
                 startMessage.style.display = "none";
-                
-                // Start the game
                 startGame();
             }
             
@@ -956,14 +920,11 @@
                     mobileInstructions.style.display = "none";
                 }
                 
-                // Clear any existing intervals
                 if (gameLoopInterval) clearInterval(gameLoopInterval);
                 if (pipeCreateInterval) clearInterval(pipeCreateInterval);
                 
-                // Start game loop
                 gameLoopInterval = setInterval(updateGame, 20);
                 
-                // Start creating pipes after a delay
                 setTimeout(function() {
                     if (gameRunning) {
                         pipeCreateInterval = setInterval(createPipe, 2000);
@@ -978,7 +939,6 @@
                 var gameHeight = gameContainer.clientHeight;
                 var gameWidth = gameContainer.clientWidth;
                 
-                // Gap size changes with score (starts easy, gets harder)
                 var minGap = 150;
                 var startingGap = 250;
                 var gap = Math.max(minGap, startingGap - (score * 5));
@@ -987,58 +947,21 @@
                 var maxHeight = gameHeight - gap - minHeight;
                 var height = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
                 
-                // Top pipe (dock)
                 var topPipe = document.createElement('div');
                 topPipe.className = 'pipe pipe-top';
                 topPipe.style.height = height + 'px';
                 topPipe.style.left = gameWidth + 'px';
-                topPipe.style.width = '60px'; // Explicitly set width to ensure consistency on mobile
-                
-                // Add dock posts/pillars - only add posts that fit within pipe width
-                var postCount = Math.min(3, Math.floor(height / 40) + 1); // Limit number of posts
-                for (var i = 0; i < postCount; i++) {
-                    var post = document.createElement('div');
-                    post.style.position = 'absolute';
-                    post.style.width = '10px';
-                    post.style.height = '20px';
-                    post.style.backgroundColor = '#5D4037';
-                    post.style.bottom = '0';
-                    post.style.left = (5 + i * 15) + 'px';
-                    // Only add if position is within pipe bounds
-                    if ((5 + i * 15) + 10 <= 60) {
-                        topPipe.appendChild(post);
-                    }
-                }
-                
+                topPipe.style.width = '60px'; 
                 gameContainer.appendChild(topPipe);
                 
-                // Bottom pipe (dock)
                 var bottomPipe = document.createElement('div');
                 bottomPipe.className = 'pipe pipe-bottom';
                 bottomPipe.style.height = (gameHeight - height - gap) + 'px';
                 bottomPipe.style.left = gameWidth + 'px';
-                bottomPipe.style.bottom = '0px'; // Explicitly set bottom position
-                bottomPipe.style.width = '60px'; // Explicitly set width
-                
-                // Add dock posts/pillars - only add posts that fit within pipe width
-                var bottomPostCount = Math.min(3, Math.floor((gameHeight - height - gap) / 40) + 1); // Limit number of posts
-                for (var j = 0; j < bottomPostCount; j++) {
-                    var bottomPost = document.createElement('div');
-                    bottomPost.style.position = 'absolute';
-                    bottomPost.style.width = '10px';
-                    bottomPost.style.height = '20px';
-                    bottomPost.style.backgroundColor = '#5D4037';
-                    bottomPost.style.top = '0';
-                    bottomPost.style.left = (5 + j * 15) + 'px';
-                    // Only add if position is within pipe bounds
-                    if ((5 + j * 15) + 10 <= 60) {
-                        bottomPipe.appendChild(bottomPost);
-                    }
-                }
-                
+                bottomPipe.style.bottom = '0px'; 
+                bottomPipe.style.width = '60px'; 
                 gameContainer.appendChild(bottomPipe);
                 
-                // Add to pipes array
                 pipes.push({
                     x: gameWidth,
                     topPipe: topPipe,
@@ -1051,35 +974,29 @@
             function updateGame() {
                 if (!gameRunning || gameOver) return;
                 
-                // Update player position
                 velocity += gravity;
                 playerY += velocity;
                 player.style.top = playerY + 'px';
                 
-                // Rotate player
                 var rotation = Math.max(-30, Math.min(30, velocity * 2));
                 player.style.transform = 'rotate(' + rotation + 'deg)';
                 
                 var gameHeight = gameContainer.clientHeight;
                 
-                // Check if hit top
                 if (playerY < 0) {
                     playerY = 0;
                     velocity = 0;
                 }
                 
-                // Check if hit bottom
                 if (playerY + player.clientHeight > gameHeight) {
                     endGame();
                     return;
                 }
                 
-                // Update hitbox visualization if enabled
                 if (showHitbox) {
                     updateHitbox();
                 }
                 
-                // Update pipes
                 updatePipes();
             }
             
@@ -1089,25 +1006,19 @@
                     var pipe = pipes[i];
                     pipe.x -= 2;
                     
-                    // Update position
                     pipe.topPipe.style.left = pipe.x + 'px';
                     pipe.bottomPipe.style.left = pipe.x + 'px';
                     
-                    // Check if pipe has been passed
                     if (!pipe.counted && pipe.x + 60 < 50) {
                         pipe.counted = true;
-                        
-                        // Increment score
                         score++;
                         scoreDisplay.textContent = score;
                         
-                        // Check for high score
                         if (score > highScore) {
                             highScore = score;
                             highScoreDisplay.textContent = "High Score: " + highScore;
                             savePlayerData();
                             
-                            // Flash high score
                             highScoreDisplay.style.color = "#FF6347";
                             setTimeout(function() {
                                 highScoreDisplay.style.color = "#FFD700";
@@ -1115,7 +1026,6 @@
                         }
                     }
                     
-                    // Remove offscreen pipes
                     if (pipe.x + 60 < -10) {
                         pipe.topPipe.remove();
                         pipe.bottomPipe.remove();
@@ -1124,7 +1034,6 @@
                         continue;
                     }
                     
-                    // Check for collision
                     if (checkCollision(pipe)) {
                         endGame();
                         return;
@@ -1134,16 +1043,11 @@
             
             // Update hitbox visualization (for debugging)
             function updateHitbox() {
-                // Set hitbox to visible
                 hitbox.style.display = 'block';
-                
-                // Calculate actual player hitbox (smaller than visual)
                 var hitboxLeft = 50 + player.clientWidth * 0.15;
                 var hitboxTop = playerY + player.clientHeight * 0.15;
                 var hitboxWidth = player.clientWidth * 0.7;
                 var hitboxHeight = player.clientHeight * 0.7;
-                
-                // Position the hitbox element
                 hitbox.style.left = hitboxLeft + 'px';
                 hitbox.style.top = hitboxTop + 'px';
                 hitbox.style.width = hitboxWidth + 'px';
@@ -1152,12 +1056,9 @@
             
             // Check for collision - more forgiving version
             function checkCollision(pipe) {
-                // Get game container bounds for relative positioning
                 var containerRect = gameContainer.getBoundingClientRect();
                 var playerRect = player.getBoundingClientRect();
                 
-                // Use an even smaller hitbox for player (70% of actual size instead of 80%)
-                // This makes the game more forgiving
                 var playerHitbox = {
                     left: playerRect.left - containerRect.left + player.clientWidth * 0.15,
                     right: playerRect.left - containerRect.left + player.clientWidth * 0.85,
@@ -1165,33 +1066,29 @@
                     bottom: playerRect.top - containerRect.top + player.clientHeight * 0.85
                 };
                 
-                // Get pipe elements and their positions
                 var topPipeRect = pipe.topPipe.getBoundingClientRect();
                 var bottomPipeRect = pipe.bottomPipe.getBoundingClientRect();
                 
-                // Make the pipe hitboxes slightly smaller (more forgiving)
                 var topPipeHitbox = {
-                    left: topPipeRect.left - containerRect.left + 2, // +2 instead of -2 (smaller hitbox)
-                    right: topPipeRect.right - containerRect.left - 2, // -2 instead of +2 (smaller hitbox)
+                    left: topPipeRect.left - containerRect.left + 2,
+                    right: topPipeRect.right - containerRect.left - 2,
                     top: topPipeRect.top - containerRect.top,
-                    bottom: topPipeRect.bottom - containerRect.top - 2 // -2 instead of +2 (smaller hitbox)
+                    bottom: topPipeRect.bottom - containerRect.top - 2
                 };
                 
                 var bottomPipeHitbox = {
-                    left: bottomPipeRect.left - containerRect.left + 2, // +2 instead of -2 (smaller hitbox)
-                    right: bottomPipeRect.right - containerRect.left - 2, // -2 instead of +2 (smaller hitbox)
-                    top: bottomPipeRect.top - containerRect.top + 2, // +2 instead of -2 (smaller hitbox)
+                    left: bottomPipeRect.left - containerRect.left + 2,
+                    right: bottomPipeRect.right - containerRect.left - 2,
+                    top: bottomPipeRect.top - containerRect.top + 2,
                     bottom: bottomPipeRect.bottom - containerRect.top
                 };
                 
-                // Check collision with top pipe
                 if (playerHitbox.right > topPipeHitbox.left && 
                     playerHitbox.left < topPipeHitbox.right && 
                     playerHitbox.top < topPipeHitbox.bottom) {
                     return true;
                 }
                 
-                // Check collision with bottom pipe
                 if (playerHitbox.right > bottomPipeHitbox.left && 
                     playerHitbox.left < bottomPipeHitbox.right && 
                     playerHitbox.bottom > bottomPipeHitbox.top) {
@@ -1206,21 +1103,12 @@
                 gameRunning = false;
                 gameOver = true;
                 
-                // Clean up intervals
-                if (gameLoopInterval) {
-                    clearInterval(gameLoopInterval);
-                    gameLoopInterval = null;
-                }
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                if (pipeCreateInterval) clearInterval(pipeCreateInterval);
                 
-                if (pipeCreateInterval) {
-                    clearInterval(pipeCreateInterval);
-                    pipeCreateInterval = null;
-                }
-                
-                // Update leaderboard with player score
+                // Update leaderboard with final score
                 updateLeaderboard(playerName, score);
                 
-                // Show game over screen with player name
                 playerResultName.textContent = playerName + " failed Captain Daddy!";
                 finalScore.textContent = "Score: " + score;
                 gameOverMessage.style.display = "block";
@@ -1237,30 +1125,22 @@
             
             // Handle flap
             function flap(e) {
-                // For touch events
-                if (e && e.type === "touchstart") {
-                    e.preventDefault();
-                }
-                
+                if (e && e.type === "touchstart") e.preventDefault();
                 if (gameOver) return;
-                
                 if (!gameRunning && startMessage.style.display === "none") {
                     startGame();
                     return;
                 }
-                
                 velocity = -8;
             }
             
             // Event listeners
             gameContainer.addEventListener('click', function(e) {
-                // Don't handle clicks if the start message is showing
                 if (startMessage.style.display !== "none") return;
                 flap(e);
             });
             
             gameContainer.addEventListener('touchstart', function(e) {
-                // Don't handle touches if the start message is showing
                 if (startMessage.style.display !== "none") return;
                 flap(e);
             }, { passive: false });
@@ -1268,75 +1148,60 @@
             document.addEventListener('keydown', function(e) {
                 if (e.code === "Space") {
                     e.preventDefault();
-                    // Don't handle space if the start message is showing
                     if (startMessage.style.display !== "none") return;
                     flap();
                 }
-                
-                // Toggle hitbox visibility for debugging with 'h' key
                 if (e.key === 'h') {
                     showHitbox = !showHitbox;
                     hitbox.style.display = showHitbox ? 'block' : 'none';
                 }
-                
-                // Allow Enter key to submit player name
                 if (e.key === 'Enter' && startMessage.style.display === "block") {
                     prepareGame();
                 }
-                
-                // Escape key closes the modal
                 if (e.key === 'Escape') {
                     closeLeaderboardModal();
                 }
             });
             
-            // Start button event listener
             startButton.addEventListener('click', function(e) {
-                e.stopPropagation(); // Prevent event from reaching game container
+                e.stopPropagation();
                 prepareGame();
             });
             
-            // Leaderboard button in start screen
             viewLeaderboardButton.addEventListener('click', function(e) {
-                e.stopPropagation(); // Prevent event from reaching game container
+                e.stopPropagation();
                 showLeaderboardModal();
             });
             
-            // Leaderboard button in game over screen
             viewLeaderboardButtonGameover.addEventListener('click', function(e) {
-                e.stopPropagation(); // Prevent event from reaching game container
+                e.stopPropagation();
                 showLeaderboardModal();
             });
             
-            // Close leaderboard button
             closeLeaderboardButton.addEventListener('click', function() {
                 closeLeaderboardModal();
             });
             
-            // Close modal if clicking outside the content
             window.addEventListener('click', function(e) {
                 if (e.target === leaderboardModal) {
                     closeLeaderboardModal();
                 }
             });
             
-            // Special handling for restart button
             restartButton.addEventListener('click', function(e) {
-                e.stopPropagation(); // Prevent event from reaching game container
+                e.stopPropagation();
                 initGame();
             });
             
             restartButton.addEventListener('touchstart', function(e) {
                 e.preventDefault();
-                e.stopPropagation(); // Prevent event from reaching game container
+                e.stopPropagation();
                 initGame();
             }, { passive: false });
             
-            // Handle window resize
             window.addEventListener('resize', handleOrientation);
             window.addEventListener('orientationchange', handleOrientation);
             
-            // Initialize
             handleOrientation();
             initGame();
         };
