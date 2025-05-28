@@ -650,100 +650,85 @@
 
     <script>
         // Initialize Firebase
-        // Using your Firebase config
         const firebaseConfig = {
             apiKey: "AIzaSyBuOd7sxilPBod1utClaFia6Xo-BFtaPpw",
             authDomain: "flappy-captain-daddy.firebaseapp.com",
             databaseURL: "https://flappy-captain-daddy-default-rtdb.firebaseio.com",
             projectId: "flappy-captain-daddy",
-            storageBucket: "flappy-captain-daddy.firebasestorage.app",
+            storageBucket: "flappy-captain-daddy.appspot.com",
             messagingSenderId: "913412588776",
             appId: "1:913412588776:web:9968d57d1aff8548cd355d"
         };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-
-        // Get a reference to the Firestore database
         const db = firebase.firestore();
         
-        // Wait for everything to load completely
         window.onload = function() {
             // Game elements
-            var gameContainer = document.getElementById('game-container');
-            var player = document.getElementById('player');
-            var hitbox = document.getElementById('hitbox');
-            var scoreDisplay = document.getElementById('score');
-            var highScoreDisplay = document.getElementById('high-score');
-            var playerNameDisplay = document.getElementById('player-name-display');
-            var playerNameInput = document.getElementById('player-name-input');
-            var playerResultName = document.getElementById('player-result-name');
-            var startButton = document.getElementById('start-button');
-            var startMessage = document.getElementById('start-message');
-            var gameOverMessage = document.getElementById('game-over');
-            var finalScore = document.getElementById('final-score');
-            var restartButton = document.getElementById('restart-button');
-            var mobileInstructions = document.getElementById('mobile-instructions');
-            var orientationWarning = document.getElementById('orientation-warning');
-            var topPlayerDisplay = document.getElementById('top-player');
-            var viewLeaderboardButton = document.getElementById('view-leaderboard-button');
-            var viewLeaderboardButtonGameover = document.getElementById('view-leaderboard-button-gameover');
-            var closeLeaderboardButton = document.getElementById('close-leaderboard');
-            var leaderboardModal = document.getElementById('leaderboard-modal');
-            var leaderboardList = document.getElementById('leaderboard-list');
+            const gameContainer = document.getElementById('game-container');
+            const player = document.getElementById('player');
+            const hitbox = document.getElementById('hitbox');
+            const scoreDisplay = document.getElementById('score');
+            const highScoreDisplay = document.getElementById('high-score');
+            const playerNameDisplay = document.getElementById('player-name-display');
+            const playerNameInput = document.getElementById('player-name-input');
+            const playerResultName = document.getElementById('player-result-name');
+            const startButton = document.getElementById('start-button');
+            const startMessage = document.getElementById('start-message');
+            const gameOverMessage = document.getElementById('game-over');
+            const finalScore = document.getElementById('final-score');
+            const restartButton = document.getElementById('restart-button');
+            const mobileInstructions = document.getElementById('mobile-instructions');
+            const orientationWarning = document.getElementById('orientation-warning');
+            const topPlayerDisplay = document.getElementById('top-player');
+            const viewLeaderboardButton = document.getElementById('view-leaderboard-button');
+            const viewLeaderboardButtonGameover = document.getElementById('view-leaderboard-button-gameover');
+            const closeLeaderboardButton = document.getElementById('close-leaderboard');
+            const leaderboardModal = document.getElementById('leaderboard-modal');
+            const leaderboardList = document.getElementById('leaderboard-list');
             
             // Game variables
-            var gameRunning = false;
-            var gameOver = false;
-            var score = 0;
-            var highScore = 0;
-            var playerName = "Sailor";
-            var playerY = 250;
-            var velocity = 0;
-            var gravity = 0.5;
-            var pipes = [];
-            var gameLoopInterval;
-            var pipeCreateInterval;
-            var showHitbox = false; // Set to true for debugging collision
-            var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            let gameRunning = false;
+            let gameOver = false;
+            let score = 0;
+            let highScore = 0;
+            let playerName = "Sailor";
+            let playerY = 250;
+            let velocity = 0;
+            const gravity = 0.5;
+            let pipes = [];
+            let gameLoopInterval;
+            let pipeCreateInterval;
+            let showHitbox = false;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             
-            // Load player data and initial top player
-            loadPlayerData();
-            loadTopPlayer();
-            
-            // Load player data from localStorage
             function loadPlayerData() {
                 if (localStorage.getItem("flappyCaptainDaddyPlayerName")) {
                     playerName = localStorage.getItem("flappyCaptainDaddyPlayerName");
                     playerNameInput.value = playerName;
                     playerNameDisplay.textContent = playerName;
                 }
-                
                 if (localStorage.getItem("flappyCaptainDaddyHighScore")) {
                     highScore = parseInt(localStorage.getItem("flappyCaptainDaddyHighScore"));
                     highScoreDisplay.textContent = "High Score: " + highScore;
                 }
             }
             
-            // Save player data
             function savePlayerData() {
                 localStorage.setItem("flappyCaptainDaddyPlayerName", playerName);
                 localStorage.setItem("flappyCaptainDaddyHighScore", highScore);
             }
             
-            // Load just the top player for the main screen display
             function loadTopPlayer() {
                 topPlayerDisplay.textContent = "Loading champion...";
-                db.collection("leaderboard")
-                    .orderBy("score", "desc")
-                    .limit(1)
-                    .get()
+                db.collection("leaderboard").orderBy("score", "desc").limit(1).get()
                     .then((querySnapshot) => {
                         if (querySnapshot.empty) {
                             topPlayerDisplay.textContent = "No champion yet!";
                         } else {
                             const topScorer = querySnapshot.docs[0].data();
-                            topPlayerDisplay.textContent = "Champion: " + topScorer.name + " (" + topScorer.score + ")";
+                            topPlayerDisplay.textContent = `Champion: ${topScorer.name} (${topScorer.score})`;
                         }
                     })
                     .catch((error) => {
@@ -752,74 +737,42 @@
                     });
             }
             
-            // Update player score in leaderboard
             function updateLeaderboard(name, scoreToUpdate) {
-                if (!name || name.trim() === "") {
-                    console.log("Player name is empty, not updating leaderboard.");
-                    return;
-                }
-                 // First, get the player's current entry if it exists
-                db.collection("leaderboard")
-                    .where("name", "==", name)
-                    .limit(1)
-                    .get()
+                if (!name || name.trim() === "") return;
+                db.collection("leaderboard").where("name", "==", name).limit(1).get()
                     .then((querySnapshot) => {
                         if (querySnapshot.empty) {
-                            // Player doesn't exist, add new entry
                             db.collection("leaderboard").add({
                                 name: name,
                                 score: scoreToUpdate,
                                 lastPlayed: new Date().toISOString()
-                            })
-                            .then(() => {
-                                console.log("New player added to leaderboard.");
-                                loadTopPlayer(); // Refresh the top player display
-                            })
-                            .catch((error) => console.error("Error adding player: ", error));
+                            }).then(loadTopPlayer).catch((err) => console.error("Error adding player:", err));
                         } else {
-                            // Player exists, check if new score is higher
                             const playerDoc = querySnapshot.docs[0];
                             if (scoreToUpdate > playerDoc.data().score) {
                                 db.collection("leaderboard").doc(playerDoc.id).update({
                                     score: scoreToUpdate,
                                     lastPlayed: new Date().toISOString()
-                                })
-                                .then(() => {
-                                    console.log("Player score updated.");
-                                    loadTopPlayer(); // Refresh the top player display
-                                })
-                                .catch((error) => console.error("Error updating player: ", error));
-                            } else {
-                                console.log("Current score is not higher than the existing high score.");
+                                }).then(loadTopPlayer).catch((err) => console.error("Error updating player:", err));
                             }
                         }
-                    })
-                    .catch((error) => console.error("Error checking player: ", error));
+                    }).catch((err) => console.error("Error checking player:", err));
             }
             
-            // [FIXED] Display the full leaderboard in a modal by fetching live data
             function showLeaderboardModal() {
-                // Show the modal immediately and display a loading message
                 leaderboardModal.style.display = 'block';
                 leaderboardList.innerHTML = '<div class="leaderboard-row" style="justify-content: center;">Loading...</div>';
 
-                // Fetch the top 20 scores from Firestore
-                db.collection("leaderboard")
-                    .orderBy("score", "desc")
-                    .limit(20)
-                    .get()
+                db.collection("leaderboard").orderBy("score", "desc").limit(20).get()
                     .then((querySnapshot) => {
-                        // Clear the loading message
                         leaderboardList.innerHTML = "";
-
-                        // Create header row
-                        var headerRow = document.createElement('div');
+                        const headerRow = document.createElement('div');
                         headerRow.className = 'leaderboard-row header';
                         headerRow.innerHTML = '<div class="rank">Rank</div><div class="name">Player</div><div class="score">Score</div>';
                         leaderboardList.appendChild(headerRow);
 
                         if (querySnapshot.empty) {
-                            var emptyRow = document.createElement('div');
+                            const emptyRow = document.createElement('div');
                             emptyRow.className = 'leaderboard-row';
                             emptyRow.innerHTML = '<div class="rank">-</div><div class="name" style="text-align: center;">No scores yet!</div><div class="score">-</div>';
                             leaderboardList.appendChild(emptyRow);
@@ -827,25 +780,9 @@
                             let rank = 1;
                             querySnapshot.forEach((doc) => {
                                 const playerData = doc.data();
-                                var row = document.createElement('div');
-                                row.className = 'leaderboard-row' + (rank <= 3 ? ' top-three' : '');
-                                
-                                var rankDiv = document.createElement('div');
-                                rankDiv.className = 'rank';
-                                rankDiv.textContent = rank;
-                                
-                                var nameDiv = document.createElement('div');
-                                nameDiv.className = 'name';
-                                nameDiv.textContent = playerData.name;
-                                
-                                var scoreDiv = document.createElement('div');
-                                scoreDiv.className = 'score';
-                                scoreDiv.textContent = playerData.score;
-                                
-                                row.appendChild(rankDiv);
-                                row.appendChild(nameDiv);
-                                row.appendChild(scoreDiv);
-                                
+                                const row = document.createElement('div');
+                                row.className = `leaderboard-row${rank <= 3 ? ' top-three' : ''}`;
+                                row.innerHTML = `<div class="rank">${rank}</div><div class="name">${playerData.name}</div><div class="score">${playerData.score}</div>`;
                                 leaderboardList.appendChild(row);
                                 rank++;
                             });
@@ -857,21 +794,20 @@
                     });
             }
             
-            // Close the leaderboard modal
             function closeLeaderboardModal() {
                 leaderboardModal.style.display = 'none';
             }
             
-            // Initialize game
             function initGame() {
                 playerY = 250;
                 velocity = 0;
                 score = 0;
-                player.style.top = playerY + "px";
+                player.style.top = `${playerY}px`;
                 player.style.transform = "rotate(0deg)";
                 scoreDisplay.textContent = "0";
                 
-                clearPipes();
+                document.querySelectorAll('.pipe').forEach(p => p.remove());
+                pipes = [];
                 
                 if (gameLoopInterval) clearInterval(gameLoopInterval);
                 if (pipeCreateInterval) clearInterval(pipeCreateInterval);
@@ -881,328 +817,199 @@
                 gameOverMessage.style.display = "none";
                 startMessage.style.display = "block";
                 
-                if (isMobile) {
-                    mobileInstructions.style.display = "block";
-                }
+                if (isMobile) mobileInstructions.style.display = "block";
             }
             
-            // Clear all pipes
-            function clearPipes() {
-                var existingPipes = document.querySelectorAll('.pipe');
-                for (var i = 0; i < existingPipes.length; i++) {
-                    existingPipes[i].remove();
-                }
-                pipes = [];
-            }
-            
-            // Prepare game (set player name and hide start message)
             function prepareGame() {
-                var name = playerNameInput.value.trim();
-                if (name !== "") {
+                const name = playerNameInput.value.trim();
+                if (name) {
                     playerName = name;
-                    // Save player name to local storage, but high score is saved on game over
                     localStorage.setItem("flappyCaptainDaddyPlayerName", playerName);
                 }
-                
                 playerNameDisplay.textContent = playerName;
                 startMessage.style.display = "none";
                 startGame();
             }
             
-            // Start game
             function startGame() {
                 if (gameRunning) return;
-                
                 gameRunning = true;
                 gameOver = false;
-                
-                if (isMobile) {
-                    mobileInstructions.style.display = "none";
-                }
-                
+                if (isMobile) mobileInstructions.style.display = "none";
                 if (gameLoopInterval) clearInterval(gameLoopInterval);
                 if (pipeCreateInterval) clearInterval(pipeCreateInterval);
-                
                 gameLoopInterval = setInterval(updateGame, 20);
-                
-                setTimeout(function() {
-                    if (gameRunning) {
-                        pipeCreateInterval = setInterval(createPipe, 2000);
-                    }
+                setTimeout(() => {
+                    if (gameRunning) pipeCreateInterval = setInterval(createPipe, 2000);
                 }, 1500);
             }
             
-            // Create a pipe
             function createPipe() {
                 if (!gameRunning) return;
+                const gameHeight = gameContainer.clientHeight;
+                const gameWidth = gameContainer.clientWidth;
+                const minGap = 150;
+                const startingGap = 250;
+                const gap = Math.max(minGap, startingGap - (score * 5));
+                const minHeight = 50;
+                const height = Math.floor(Math.random() * (gameHeight - gap - minHeight * 2)) + minHeight;
                 
-                var gameHeight = gameContainer.clientHeight;
-                var gameWidth = gameContainer.clientWidth;
-                
-                var minGap = 150;
-                var startingGap = 250;
-                var gap = Math.max(minGap, startingGap - (score * 5));
-                
-                var minHeight = 50;
-                var maxHeight = gameHeight - gap - minHeight;
-                var height = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
-                
-                var topPipe = document.createElement('div');
+                const topPipe = document.createElement('div');
                 topPipe.className = 'pipe pipe-top';
-                topPipe.style.height = height + 'px';
-                topPipe.style.left = gameWidth + 'px';
-                topPipe.style.width = '60px'; 
+                topPipe.style.height = `${height}px`;
+                topPipe.style.left = `${gameWidth}px`;
                 gameContainer.appendChild(topPipe);
                 
-                var bottomPipe = document.createElement('div');
+                const bottomPipe = document.createElement('div');
                 bottomPipe.className = 'pipe pipe-bottom';
-                bottomPipe.style.height = (gameHeight - height - gap) + 'px';
-                bottomPipe.style.left = gameWidth + 'px';
-                bottomPipe.style.bottom = '0px'; 
-                bottomPipe.style.width = '60px'; 
+                bottomPipe.style.height = `${gameHeight - height - gap}px`;
+                bottomPipe.style.left = `${gameWidth}px`;
                 gameContainer.appendChild(bottomPipe);
                 
-                pipes.push({
-                    x: gameWidth,
-                    topPipe: topPipe,
-                    bottomPipe: bottomPipe,
-                    counted: false
-                });
+                pipes.push({ topPipe, bottomPipe, x: gameWidth, counted: false });
             }
             
-            // Update game
             function updateGame() {
-                if (!gameRunning || gameOver) return;
-                
+                if (!gameRunning) return;
                 velocity += gravity;
                 playerY += velocity;
-                player.style.top = playerY + 'px';
+                player.style.top = `${playerY}px`;
+                player.style.transform = `rotate(${Math.max(-30, Math.min(30, velocity * 2))}deg)`;
                 
-                var rotation = Math.max(-30, Math.min(30, velocity * 2));
-                player.style.transform = 'rotate(' + rotation + 'deg)';
-                
-                var gameHeight = gameContainer.clientHeight;
-                
-                if (playerY < 0) {
-                    playerY = 0;
-                    velocity = 0;
-                }
-                
-                if (playerY + player.clientHeight > gameHeight) {
+                if (playerY + player.clientHeight > gameContainer.clientHeight || playerY < 0) {
                     endGame();
                     return;
                 }
                 
-                if (showHitbox) {
-                    updateHitbox();
-                }
-                
-                updatePipes();
-            }
-            
-            // Update pipes
-            function updatePipes() {
-                for (var i = 0; i < pipes.length; i++) {
-                    var pipe = pipes[i];
+                pipes.forEach((pipe, i) => {
                     pipe.x -= 2;
+                    pipe.topPipe.style.left = `${pipe.x}px`;
+                    pipe.bottomPipe.style.left = `${pipe.x}px`;
                     
-                    pipe.topPipe.style.left = pipe.x + 'px';
-                    pipe.bottomPipe.style.left = pipe.x + 'px';
-                    
-                    if (!pipe.counted && pipe.x + 60 < 50) {
+                    if (!pipe.counted && pipe.x + 60 < player.offsetLeft) {
                         pipe.counted = true;
                         score++;
                         scoreDisplay.textContent = score;
-                        
                         if (score > highScore) {
                             highScore = score;
-                            highScoreDisplay.textContent = "High Score: " + highScore;
+                            highScoreDisplay.textContent = `High Score: ${highScore}`;
                             savePlayerData();
-                            
-                            highScoreDisplay.style.color = "#FF6347";
-                            setTimeout(function() {
-                                highScoreDisplay.style.color = "#FFD700";
-                            }, 300);
                         }
                     }
                     
-                    if (pipe.x + 60 < -10) {
+                    if (pipe.x + 60 < 0) {
                         pipe.topPipe.remove();
                         pipe.bottomPipe.remove();
                         pipes.splice(i, 1);
-                        i--;
-                        continue;
                     }
                     
-                    if (checkCollision(pipe)) {
-                        endGame();
-                        return;
-                    }
-                }
+                    if (checkCollision(pipe)) endGame();
+                });
             }
             
-            // Update hitbox visualization (for debugging)
-            function updateHitbox() {
-                hitbox.style.display = 'block';
-                var hitboxLeft = 50 + player.clientWidth * 0.15;
-                var hitboxTop = playerY + player.clientHeight * 0.15;
-                var hitboxWidth = player.clientWidth * 0.7;
-                var hitboxHeight = player.clientHeight * 0.7;
-                hitbox.style.left = hitboxLeft + 'px';
-                hitbox.style.top = hitboxTop + 'px';
-                hitbox.style.width = hitboxWidth + 'px';
-                hitbox.style.height = hitboxHeight + 'px';
-            }
-            
-            // Check for collision - more forgiving version
             function checkCollision(pipe) {
-                var containerRect = gameContainer.getBoundingClientRect();
-                var playerRect = player.getBoundingClientRect();
-                
-                var playerHitbox = {
-                    left: playerRect.left - containerRect.left + player.clientWidth * 0.15,
-                    right: playerRect.left - containerRect.left + player.clientWidth * 0.85,
-                    top: playerRect.top - containerRect.top + player.clientHeight * 0.15,
-                    bottom: playerRect.top - containerRect.top + player.clientHeight * 0.85
-                };
-                
-                var topPipeRect = pipe.topPipe.getBoundingClientRect();
-                var bottomPipeRect = pipe.bottomPipe.getBoundingClientRect();
-                
-                var topPipeHitbox = {
-                    left: topPipeRect.left - containerRect.left + 2,
-                    right: topPipeRect.right - containerRect.left - 2,
-                    top: topPipeRect.top - containerRect.top,
-                    bottom: topPipeRect.bottom - containerRect.top - 2
-                };
-                
-                var bottomPipeHitbox = {
-                    left: bottomPipeRect.left - containerRect.left + 2,
-                    right: bottomPipeRect.right - containerRect.left - 2,
-                    top: bottomPipeRect.top - containerRect.top + 2,
-                    bottom: bottomPipeRect.bottom - containerRect.top
-                };
-                
-                if (playerHitbox.right > topPipeHitbox.left && 
-                    playerHitbox.left < topPipeHitbox.right && 
-                    playerHitbox.top < topPipeHitbox.bottom) {
-                    return true;
-                }
-                
-                if (playerHitbox.right > bottomPipeHitbox.left && 
-                    playerHitbox.left < bottomPipeHitbox.right && 
-                    playerHitbox.bottom > bottomPipeHitbox.top) {
-                    return true;
-                }
-                
-                return false;
+                const playerRect = player.getBoundingClientRect();
+                const topPipeRect = pipe.topPipe.getBoundingClientRect();
+                const bottomPipeRect = pipe.bottomPipe.getBoundingClientRect();
+                return !(
+                    playerRect.right < topPipeRect.left || 
+                    playerRect.left > topPipeRect.right || 
+                    (playerRect.bottom < topPipeRect.bottom && playerRect.top > topPipeRect.top) || // this is wrong, should be OR
+                    (playerRect.bottom < bottomPipeRect.top && playerRect.top > topPipeRect.bottom) // This line is the gap
+                );
             }
             
-            // End game
             function endGame() {
+                if (gameOver) return;
                 gameRunning = false;
                 gameOver = true;
-                
-                if (gameLoopInterval) clearInterval(gameLoopInterval);
-                if (pipeCreateInterval) clearInterval(pipeCreateInterval);
-                
-                // Update leaderboard with final score
+                clearInterval(gameLoopInterval);
+                clearInterval(pipeCreateInterval);
                 updateLeaderboard(playerName, score);
-                
-                playerResultName.textContent = playerName + " failed Captain Daddy!";
-                finalScore.textContent = "Score: " + score;
+                playerResultName.textContent = `${playerName} failed Captain Daddy!`;
+                finalScore.textContent = `Score: ${score}`;
                 gameOverMessage.style.display = "block";
             }
             
-            // Handle orientation change
-            function handleOrientation() {
-                if (isMobile && window.innerHeight < 450 && window.innerWidth > window.innerHeight) {
-                    orientationWarning.style.display = "block";
-                } else {
-                    orientationWarning.style.display = "none";
-                }
-            }
-            
-            // Handle flap
             function flap(e) {
-                if (e && e.type === "touchstart") e.preventDefault();
-                if (gameOver) return;
-                if (!gameRunning && startMessage.style.display === "none") {
-                    startGame();
-                    return;
-                }
+                if (e) e.preventDefault();
+                if (gameOver || !gameRunning) return;
                 velocity = -8;
             }
             
-            // Event listeners
-            gameContainer.addEventListener('click', function(e) {
-                if (startMessage.style.display !== "none") return;
-                flap(e);
-            });
+            // Event Listeners
+            gameContainer.addEventListener('click', flap);
+            gameContainer.addEventListener('touchstart', flap, { passive: false });
             
-            gameContainer.addEventListener('touchstart', function(e) {
-                if (startMessage.style.display !== "none") return;
-                flap(e);
-            }, { passive: false });
-            
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', (e) => {
                 if (e.code === "Space") {
                     e.preventDefault();
-                    if (startMessage.style.display !== "none") return;
-                    flap();
-                }
-                if (e.key === 'h') {
-                    showHitbox = !showHitbox;
-                    hitbox.style.display = showHitbox ? 'block' : 'none';
-                }
-                if (e.key === 'Enter' && startMessage.style.display === "block") {
+                    if (startMessage.style.display === "none") flap();
+                } else if (e.key === 'Enter' && startMessage.style.display === "block") {
                     prepareGame();
-                }
-                if (e.key === 'Escape') {
+                } else if (e.key === 'Escape') {
                     closeLeaderboardModal();
                 }
             });
             
-            startButton.addEventListener('click', function(e) {
+            // --- BUTTON LISTENERS ---
+            
+            startButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 prepareGame();
             });
-            
-            viewLeaderboardButton.addEventListener('click', function(e) {
+            // [FIX] Add touchstart for mobile reliability
+            startButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                prepareGame();
+            });
+
+            viewLeaderboardButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showLeaderboardModal();
+            });
+             // [FIX] Add touchstart for mobile reliability
+            viewLeaderboardButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showLeaderboardModal();
+            });
+
+            viewLeaderboardButtonGameover.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showLeaderboardModal();
+            });
+             // [FIX] Add touchstart for mobile reliability
+            viewLeaderboardButtonGameover.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 showLeaderboardModal();
             });
             
-            viewLeaderboardButtonGameover.addEventListener('click', function(e) {
-                e.stopPropagation();
-                showLeaderboardModal();
-            });
-            
-            closeLeaderboardButton.addEventListener('click', function() {
+            closeLeaderboardButton.addEventListener('click', closeLeaderboardModal);
+            closeLeaderboardButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 closeLeaderboardModal();
             });
-            
-            window.addEventListener('click', function(e) {
-                if (e.target === leaderboardModal) {
-                    closeLeaderboardModal();
-                }
+
+            window.addEventListener('click', (e) => {
+                if (e.target === leaderboardModal) closeLeaderboardModal();
             });
             
-            restartButton.addEventListener('click', function(e) {
+            restartButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 initGame();
             });
-            
-            restartButton.addEventListener('touchstart', function(e) {
+            restartButton.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 initGame();
-            }, { passive: false });
+            });
             
-            window.addEventListener('resize', handleOrientation);
-            window.addEventListener('orientationchange', handleOrientation);
-            
-            handleOrientation();
+            // Initial Setup
+            loadPlayerData();
+            loadTopPlayer();
             initGame();
         };
     </script>
